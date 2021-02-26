@@ -2,24 +2,25 @@
 
 namespace SchulzeFelix\AdWords;
 
-use Google\AdsApi\AdWords\v201809\cm\ApiException;
-use Google\AdsApi\AdWords\v201809\cm\Language;
-use Google\AdsApi\AdWords\v201809\cm\Location;
-use Google\AdsApi\AdWords\v201809\cm\NetworkSetting;
-use Google\AdsApi\AdWords\v201809\cm\Paging;
-use Google\AdsApi\AdWords\v201809\o\AttributeType;
-use Google\AdsApi\AdWords\v201809\o\IdeaTextFilterSearchParameter;
-use Google\AdsApi\AdWords\v201809\o\IdeaType;
-use Google\AdsApi\AdWords\v201809\o\LanguageSearchParameter;
-use Google\AdsApi\AdWords\v201809\o\LocationSearchParameter;
-use Google\AdsApi\AdWords\v201809\o\NetworkSearchParameter;
-use Google\AdsApi\AdWords\v201809\o\RelatedToQuerySearchParameter;
-use Google\AdsApi\AdWords\v201809\o\TargetingIdeaSelector;
 use Google\AdsApi\AdWords\v201809\o\TargetingIdeaService;
+use Google\AdsApi\AdWords\v201809\o\TargetingIdeaSelector;
+use Google\AdsApi\AdWords\v201809\o\RelatedToQuerySearchParameter;
+use Google\AdsApi\AdWords\v201809\o\NetworkSearchParameter;
+use Google\AdsApi\AdWords\v201809\o\LocationSearchParameter;
+use Google\AdsApi\AdWords\v201809\o\LanguageSearchParameter;
+use Google\AdsApi\AdWords\v201809\o\IdeaType;
+use Google\AdsApi\AdWords\v201809\o\IdeaTextFilterSearchParameter;
+use Google\AdsApi\AdWords\v201809\o\AttributeType;
+use Google\AdsApi\AdWords\v201809\cm\Paging;
+use Google\AdsApi\AdWords\v201809\cm\NetworkSetting;
+use Google\AdsApi\AdWords\v201809\cm\Location;
+use Google\AdsApi\AdWords\v201809\cm\Language;
+use Google\AdsApi\AdWords\v201809\cm\ApiException;
 
 class AdWordsService
 {
-    const PAGE_LIMIT = 700;
+    /** @var int */
+    protected $pageLimit;
 
     const MAX_RETRIES = 10;
 
@@ -28,6 +29,7 @@ class AdWordsService
 
     public function __construct(TargetingIdeaService $targetingIdeaService)
     {
+
         $this->targetingIdeaService = $targetingIdeaService;
     }
 
@@ -46,15 +48,15 @@ class AdWordsService
      *
      * @return \Google\AdsApi\AdWords\v201809\o\TargetingIdeaPage
      */
-    public function performQuery(array $keywords, $requestType, $language = null, $location = null, $withTargetedMonthlySearches = false, $included = null, $excluded = null)
+    public function performQuery(array $keywords, $requestType, $language = null, $location = null, $withTargetedMonthlySearches = false, $withServiceCategories = false, $included = null, $excluded = null, $page_limit = 20)
     {
-
+        $this->pageLimit = $page_limit;
         // Create selector.
         $selector = new TargetingIdeaSelector();
         $selector->setRequestType($requestType);
         $selector->setIdeaType(IdeaType::KEYWORD);
-        $selector->setRequestedAttributeTypes($this->getRequestedAttributeTypes($withTargetedMonthlySearches));
-        $selector->setPaging(new Paging(0, self::PAGE_LIMIT));
+        $selector->setRequestedAttributeTypes($this->getRequestedAttributeTypes($withTargetedMonthlySearches, $withServiceCategories));
+        $selector->setPaging(new Paging(0, $this->pageLimit));
         $selector->setSearchParameters($this->getSearchParameters($keywords, $language, $location, $included, $excluded));
 
         return (new ExponentialBackoff(10))->execute(function () use ($selector) {
@@ -75,24 +77,25 @@ class AdWordsService
      *
      * @return array
      */
-    private function getRequestedAttributeTypes($withTargetedMonthlySearches = false)
+    private function getRequestedAttributeTypes($withTargetedMonthlySearches = false, $withServiceCategories = false)
     {
+        $attributes = [
+            AttributeType::KEYWORD_TEXT,
+            AttributeType::AVERAGE_CPC,
+            AttributeType::COMPETITION,
+            AttributeType::EXTRACTED_FROM_WEBPAGE,
+            AttributeType::IDEA_TYPE,
+            AttributeType::SEARCH_VOLUME
+        ];
+
         if ($withTargetedMonthlySearches) {
-            return [
-                AttributeType::KEYWORD_TEXT,
-                AttributeType::SEARCH_VOLUME,
-                AttributeType::COMPETITION,
-                AttributeType::AVERAGE_CPC,
-                AttributeType::TARGETED_MONTHLY_SEARCHES,
-            ];
+            $attributes[] = AttributeType::TARGETED_MONTHLY_SEARCHES;
+        }
+        if ($withServiceCategories) {
+            $attributes[] = AttributeType::CATEGORY_PRODUCTS_AND_SERVICES;
         }
 
-        return [
-            AttributeType::KEYWORD_TEXT,
-            AttributeType::SEARCH_VOLUME,
-            AttributeType::COMPETITION,
-            AttributeType::AVERAGE_CPC,
-        ];
+        return $attributes;
     }
 
     /**

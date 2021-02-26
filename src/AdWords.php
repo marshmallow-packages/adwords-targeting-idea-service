@@ -2,25 +2,30 @@
 
 namespace SchulzeFelix\AdWords;
 
-use Google\AdsApi\AdWords\v201809\o\AttributeType;
-use Google\AdsApi\AdWords\v201809\o\RequestType;
-use Google\AdsApi\AdWords\v201809\o\TargetingIdeaService;
-use Google\AdsApi\Common\Util\MapEntries;
-use Illuminate\Support\Collection;
-use SchulzeFelix\AdWords\Responses\Keyword;
+use SchulzeFelix\AdWords\Responses\ServiceCategory;
 use SchulzeFelix\AdWords\Responses\MonthlySearchVolume;
+use SchulzeFelix\AdWords\Responses\Keyword;
+use Illuminate\Support\Collection;
+use Google\AdsApi\Common\Util\MapEntries;
+use Google\AdsApi\AdWords\v201809\o\TargetingIdeaService;
+use Google\AdsApi\AdWords\v201809\o\RequestType;
+use Google\AdsApi\AdWords\v201809\o\AttributeType;
 
 class AdWords
 {
-    const CHUNK_SIZE = 700;
-
     /**
      * @var TargetingIdeaService
      */
     private $service;
 
+    /** @var int */
+    protected $chunkSize = 700;
+
     /** @var bool */
     protected $withTargetedMonthlySearches = false;
+
+    /** @var bool */
+    protected $withServiceCategories = false;
 
     /** @var bool */
     protected $convertNullToZero = false;
@@ -58,10 +63,9 @@ class AdWords
         $requestType = RequestType::STATS;
 
         $searchVolumes = new Collection();
-        $chunks = array_chunk($keywords, self::CHUNK_SIZE);
-
+        $chunks = array_chunk($keywords, $this->chunkSize);
         foreach ($chunks as $index => $keywordChunk) {
-            $results = $this->service->performQuery($keywordChunk, $requestType, $this->language, $this->location, $this->withTargetedMonthlySearches);
+            $results = $this->service->performQuery($keywordChunk, $requestType, $this->language, $this->location, $this->withTargetedMonthlySearches, $this->withServiceCategories, $this->chunkSize);
             if ($results->getEntries() !== null) {
                 foreach ($results->getEntries() as $targetingIdea) {
                     $keyword = $this->extractKeyword($targetingIdea);
@@ -97,7 +101,8 @@ class AdWords
 
         $keywordIdeas = new Collection();
 
-        $results = $this->service->performQuery($keyword, $requestType, $this->language, $this->location, $this->withTargetedMonthlySearches, $this->include, $this->exclude);
+        $results = $this->service->performQuery($keyword, $requestType, $this->language, $this->location, $this->withTargetedMonthlySearches, $this->withServiceCategories,  $this->include, $this->exclude, $this->chunkSize);
+
         if ($results->getEntries() !== null) {
             foreach ($results->getEntries() as $targetingIdea) {
                 $keyword = $this->extractKeyword($targetingIdea);
@@ -121,6 +126,18 @@ class AdWords
     }
 
     /**
+     * Include Targeted Service Categories.
+     *
+     * @return $this
+     */
+    public function withServiceCategories()
+    {
+        $this->withServiceCategories = true;
+
+        return $this;
+    }
+
+    /**
      * Convert Null Values To Zero.
      *
      * @return $this
@@ -128,6 +145,18 @@ class AdWords
     public function convertNullToZero()
     {
         $this->convertNullToZero = true;
+
+        return $this;
+    }
+
+    /**
+     * Set chunk Size.
+     *
+     * @return $this
+     */
+    public function setChunkSize($size)
+    {
+        $this->chunkSize = $size;
 
         return $this;
     }
@@ -212,13 +241,33 @@ class AdWords
             ($data[AttributeType::COMPETITION]->getValue() !== null)
                 ? $data[AttributeType::COMPETITION]->getValue() : 0;
 
+        $webpage = $data[AttributeType::EXTRACTED_FROM_WEBPAGE]->getValue();
+        $idea_type = $data[AttributeType::IDEA_TYPE]->getValue();
+
         $result = new Keyword([
             'keyword'                   => $keyword,
             'search_volume'             => $search_volume,
             'cpc'                       => $average_cpc,
             'competition'               => $competition,
             'targeted_monthly_searches' => null,
+            'categories'                => null,
+            'webpage'                   => $webpage,
+            'idea_type'                 => $idea_type,
         ]);
+
+        if ($this->withServiceCategories) {
+            $category_products_and_services =
+                ($data[AttributeType::CATEGORY_PRODUCTS_AND_SERVICES]->getValue() !== null)
+                    ? $data[AttributeType::CATEGORY_PRODUCTS_AND_SERVICES]->getValue() : 0;
+            $categories = collect($category_products_and_services)
+                ->transform(function ($item, $key) {
+                    return new ServiceCategory([
+                        'google_id'  => $item,
+                    ]);
+                });
+
+            $result->categories = $categories;
+        }
 
         if ($this->withTargetedMonthlySearches) {
             $targeted_monthly_searches =

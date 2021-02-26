@@ -7,10 +7,13 @@ use SchulzeFelix\DataTransferObject\DataTransferObject;
 class Keyword extends DataTransferObject
 {
     protected $casts = [
-        'keyword'                   => 'string',
-        'search_volume'             => 'integer',
-        'cpc'                       => 'float',
-        'competition'               => 'float',
-        'targeted_monthly_searches' => 'collection',
+        'keyword'                       => 'string',
+        'search_volume'                 => 'integer',
+        'cpc'                           => 'float',
+        'competition'                   => 'float',
+        'targeted_monthly_searches'     => 'collection',
+        'categories'                    => 'collection',
+        'webpage'                       => 'string',
+        'idea_type'                     => 'string',
     ];
 }
