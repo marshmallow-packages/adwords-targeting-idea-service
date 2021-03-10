@@ -2,14 +2,14 @@
 
 namespace SchulzeFelix\AdWords;
 
-use SchulzeFelix\AdWords\Responses\ServiceCategory;
-use SchulzeFelix\AdWords\Responses\MonthlySearchVolume;
-use SchulzeFelix\AdWords\Responses\Keyword;
 use Illuminate\Support\Collection;
 use Google\AdsApi\Common\Util\MapEntries;
-use Google\AdsApi\AdWords\v201809\o\TargetingIdeaService;
+use SchulzeFelix\AdWords\Responses\Keyword;
 use Google\AdsApi\AdWords\v201809\o\RequestType;
 use Google\AdsApi\AdWords\v201809\o\AttributeType;
+use SchulzeFelix\AdWords\Responses\ServiceCategory;
+use SchulzeFelix\AdWords\Responses\MonthlySearchVolume;
+use Google\AdsApi\AdWords\v201809\o\TargetingIdeaService;
 
 class AdWords
 {
@@ -60,12 +60,14 @@ class AdWords
     public function searchVolumes(array $keywords)
     {
         $keywords = $this->prepareKeywords($keywords);
+
         $requestType = RequestType::STATS;
 
         $searchVolumes = new Collection();
         $chunks = array_chunk($keywords, $this->chunkSize);
         foreach ($chunks as $index => $keywordChunk) {
-            $results = $this->service->performQuery($keywordChunk, $requestType, $this->language, $this->location, $this->withTargetedMonthlySearches, $this->withServiceCategories, $this->chunkSize);
+
+            $results = $this->service->performQuery($keywordChunk, $requestType, $this->language, $this->location, $this->withTargetedMonthlySearches, $this->withServiceCategories, $this->include, $this->exclude,  $this->chunkSize);
             if ($results->getEntries() !== null) {
                 foreach ($results->getEntries() as $targetingIdea) {
                     $keyword = $this->extractKeyword($targetingIdea);
@@ -232,14 +234,14 @@ class AdWords
         $keyword = $data[AttributeType::KEYWORD_TEXT]->getValue();
         $search_volume =
             ($data[AttributeType::SEARCH_VOLUME]->getValue() !== null)
-                ? $data[AttributeType::SEARCH_VOLUME]->getValue() : 0;
+            ? $data[AttributeType::SEARCH_VOLUME]->getValue() : 0;
 
         $average_cpc =
             ($data[AttributeType::AVERAGE_CPC]->getValue() !== null)
-                ? $data[AttributeType::AVERAGE_CPC]->getValue()->getMicroAmount() : 0;
+            ? $data[AttributeType::AVERAGE_CPC]->getValue()->getMicroAmount() : 0;
         $competition =
             ($data[AttributeType::COMPETITION]->getValue() !== null)
-                ? $data[AttributeType::COMPETITION]->getValue() : 0;
+            ? $data[AttributeType::COMPETITION]->getValue() : 0;
 
         $webpage = $data[AttributeType::EXTRACTED_FROM_WEBPAGE]->getValue();
         $idea_type = $data[AttributeType::IDEA_TYPE]->getValue();
@@ -258,7 +260,7 @@ class AdWords
         if ($this->withServiceCategories) {
             $category_products_and_services =
                 ($data[AttributeType::CATEGORY_PRODUCTS_AND_SERVICES]->getValue() !== null)
-                    ? $data[AttributeType::CATEGORY_PRODUCTS_AND_SERVICES]->getValue() : 0;
+                ? $data[AttributeType::CATEGORY_PRODUCTS_AND_SERVICES]->getValue() : 0;
             $categories = collect($category_products_and_services)
                 ->transform(function ($item, $key) {
                     return new ServiceCategory([
@@ -272,7 +274,7 @@ class AdWords
         if ($this->withTargetedMonthlySearches) {
             $targeted_monthly_searches =
                 ($data[AttributeType::TARGETED_MONTHLY_SEARCHES]->getValue() !== null)
-                    ? $data[AttributeType::TARGETED_MONTHLY_SEARCHES]->getValue() : 0;
+                ? $data[AttributeType::TARGETED_MONTHLY_SEARCHES]->getValue() : 0;
             $targetedMonthlySearches = collect($targeted_monthly_searches)
                 ->transform(function ($item, $key) {
                     return new MonthlySearchVolume([
