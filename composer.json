@@ -10,14 +10,16 @@
     ],
     "homepage": "https://github.com/schulzefelix/laravel-adwords-targeting-idea-service",
     "license": "MIT",
-    "authors": [{
-        "name": "Felix Schulze",
-        "email": "github@schulze.co",
-        "homepage": "https://schulze.co",
-        "role": "Developer"
-    }],
+    "authors": [
+        {
+            "name": "Felix Schulze",
+            "email": "github@schulze.co",
+            "homepage": "https://schulze.co",
+            "role": "Developer"
+        }
+    ],
     "require": {
-        "php": "^7.3",
+        "php": "^7.3|^8.0",
         "laravel/framework": "^8.0",
         "googleads/googleads-php-lib": "^49.0",
         "schulzefelix/laravel-data-transfer-object": "^1.4.0"
